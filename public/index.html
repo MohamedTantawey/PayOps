@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PayOps</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>PayOps</h1>
+
+    <form id="pay-form" class="box">
+      <h2>Pay for your plan</h2>
+
+      <label>Plan</label>
+      <select name="plan">
+        <option value="starter">Starter - $9 / month</option>
+        <option value="pro" selected>Pro - $29 / month</option>
+        <option value="business">Business - $99 / month</option>
+      </select>
+
+      <label>Name on card</label>
+      <input name="name" required />
+
+      <label>Card number</label>
+      <input name="cardNumber" placeholder="4242 4242 4242 4242" required />
+
+      <label>Expiry</label>
+      <input name="expiry" placeholder="MM/YY" required />
+
+      <label>CVC</label>
+      <input name="cvc" placeholder="123" required />
+
+      <button type="submit">Pay</button>
+      <p id="message"></p>
+
+      <p class="hint">
+        Test mode (no real money). Use expiry 12/30 and CVC 123:<br />
+        4242 4242 4242 4242 = success<br />
+        4000 0000 0000 0002 = declined<br />
+        4000 0000 0000 9995 = insufficient funds
+      </p>
+    </form>
+
+    <div class="box">
+      <h2>Payments</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Plan</th><th>Amount</th><th>Card</th><th>Status</th></tr>
+        </thead>
+        <tbody id="payments"></tbody>
+      </table>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
