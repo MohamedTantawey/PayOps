@@ -3,6 +3,7 @@ name: payops
 services:
   app:
     build: .
+    image: ${IMAGE}:${TAG}
     ports:
       - "3000:3000"
     environment:
