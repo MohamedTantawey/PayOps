@@ -30,15 +30,12 @@ function isValidCard(number) {
 }
 
 app.get('/health', async (req, res) => {
-  let dbStatus = 'down';
   try {
     await db.query('SELECT 1');
-    dbStatus = 'ok';
+    res.json({ app: 'ok', database: 'ok' });
   } catch {
-    dbStatus = 'down';
+    res.status(200).json({ app: 'ok', database: 'down' });
   }
-  // إرجاع 200 دائماً ليجتاز فحص الـ Load Balancer ولا تتوقف الحاوية
-  res.status(200).json({ app: 'ok', database: dbStatus });
 });
 
 app.get('/api/payments', async (req, res) => {
