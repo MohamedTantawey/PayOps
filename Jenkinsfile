@@ -66,12 +66,15 @@ pipeline{
 
         stage('Smoke test') {
             steps {
-                script {
-                    sh '''
-                        docker compose up -d --no-build --wait --wait-timeout 60
-                        docker compose exec -T app wget -qO- http://localhost:3000/health
-                    '''
-                }
+                sh '''
+                    set -e
+
+                    IMAGE="$IMAGE" TAG="$TAG" docker compose up \
+                        -d --no-build --wait --wait-timeout 60
+
+                    IMAGE="$IMAGE" TAG="$TAG" docker compose exec \
+                        -T app wget -qO- http://localhost:3000/health
+                '''
             }
         }
         stage('Push Docker image') {
