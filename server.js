@@ -65,6 +65,11 @@ app.post('/api/payments', async (req, res) => {
   res.json(result.rows[0]);
 });
 
-app.listen(3000, () => console.log('PayOps running on port 3000'));
-
 process.on('SIGTERM', () => process.exit(0));
+
+if (require.main === module) {
+  app.listen(3000, () => console.log('PayOps running on port 3000'));
+}
+
+module.exports = { app, isValidCard };
+
