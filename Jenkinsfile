@@ -77,31 +77,7 @@ pipeline{
                 '''
             }
         }
-        stage('Push Docker image') {
-            when {
-                branch 'main'
-            }
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub',
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
-                    sh '''
-                        echo "$DOCKER_PASSWORD" | docker login \
-                            --username "$DOCKER_USERNAME" \
-                            --password-stdin
-
-                        docker push "$IMAGE:$TAG"
-
-                        docker logout
-                    '''
-                }
-            }
-        }
-
+        
         stage('Generate deployment package') {
             when {
                 branch 'main'
