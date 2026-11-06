@@ -114,18 +114,27 @@ pipeline{
                         set -e
 
                         aws ecr get-login-password --region "$AWS_REGION" |
-                            docker login --username AWS --password-stdin "$ECR_REGISTRY"
+                            docker login \
+                                --username AWS \
+                                --password-stdin "$ECR_REGISTRY"
 
+                        docker tag "$IMAGE:$TAG" "$FULL_ECR_IMAGE:$TAG"
                         docker tag "$IMAGE:$TAG" "$FULL_ECR_IMAGE:latest"
 
                         retry_count=0
-                        until docker push "$FULL_ECR_IMAGE:latest"; do
+                        until docker push "$FULL_ECR_IMAGE:$TAG" &&
+                            docker push "$FULL_ECR_IMAGE:latest"; do
                             retry_count=$((retry_count + 1))
+
                             if [ "$retry_count" -ge 3 ]; then
+                                echo "ECR push failed after 3 attempts"
                                 exit 1
                             fi
+
                             sleep 15
                         done
+
+                        docker logout "$ECR_REGISTRY"
                     '''
                 }
             }
