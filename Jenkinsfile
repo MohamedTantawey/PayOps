@@ -117,9 +117,15 @@ pipeline{
                             docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
                         docker tag "$IMAGE:$TAG" "$FULL_ECR_IMAGE:$TAG"
-                        docker push "$FULL_ECR_IMAGE:$TAG"
 
-                        docker logout "$ECR_REGISTRY"
+                        retry_count=0
+                        until docker push "$FULL_ECR_IMAGE:$TAG"; do
+                            retry_count=$((retry_count + 1))
+                            if [ "$retry_count" -ge 3 ]; then
+                                exit 1
+                            fi
+                            sleep 15
+                        done
                     '''
                 }
             }
