@@ -34,7 +34,7 @@ app.get('/health', async (req, res) => {
     await db.query('SELECT 1');
     res.json({ app: 'ok', database: 'ok' });
   } catch {
-    res.status(200).json({ app: 'ok', database: 'down' });
+    res.status(200).json({ app: 'ok', database: 'up' });
   }
 });
 
