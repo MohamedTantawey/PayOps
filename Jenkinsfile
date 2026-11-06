@@ -2,9 +2,13 @@ pipeline{
     agent {
         label 'docker'
     }
+    options {
+            disableConcurrentBuilds()
+        }
     environment {
         IMAGE="abdarlhman1/payops"
         TAG = "${env.BUILD_NUMBER}"
+        COMPOSE_PROJECT_NAME = "payops-${BUILD_TAG}"
         AWS_REGION       = 'eu-north-1'
         AWS_ACCOUNT_ID   = '950219439587'
         ECR_REPO_NAME    = 'payops'
@@ -69,10 +73,14 @@ pipeline{
                 sh '''
                     set -e
 
-                    IMAGE="$IMAGE" TAG="$TAG" docker compose up \
+                    IMAGE="$IMAGE" \
+                    TAG="$TAG" \
+                    docker compose -p "$COMPOSE_PROJECT_NAME" up \
                         -d --no-build --wait --wait-timeout 60
 
-                    IMAGE="$IMAGE" TAG="$TAG" docker compose exec \
+                    IMAGE="$IMAGE" \
+                    TAG="$TAG" \
+                    docker compose -p "$COMPOSE_PROJECT_NAME" exec \
                         -T app wget -qO- http://localhost:3000/health
                 '''
             }
@@ -148,8 +156,10 @@ pipeline{
     }
     
     post {
-        always {
-            sh 'docker compose down -v || true'
+            always {
+                sh '''
+                    docker compose -p "$COMPOSE_PROJECT_NAME" down -v --remove-orphans || true
+                '''
             }
         }
 }
