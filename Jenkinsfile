@@ -8,7 +8,7 @@ pipeline{
     environment {
         IMAGE="abdarlhman1/payops"
         TAG = "${env.BUILD_NUMBER}"
-        COMPOSE_PROJECT_NAME = "payops-${BUILD_TAG}"
+        COMPOSE_PROJECT_NAME = "payops-${env.BUILD_NUMBER}"
         AWS_REGION       = 'eu-north-1'
         AWS_ACCOUNT_ID   = '950219439587'
         ECR_REPO_NAME    = 'payops'
