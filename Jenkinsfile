@@ -8,6 +8,7 @@ pipeline{
     environment {
         IMAGE="abdarlhman1/payops"
         TAG = "${env.BUILD_NUMBER}"
+        APP_PORT = '3001'
         COMPOSE_PROJECT_NAME = "payops-${env.BUILD_NUMBER}"
         AWS_REGION       = 'eu-north-1'
         AWS_ACCOUNT_ID   = '950219439587'
