@@ -32,12 +32,14 @@ function isValidCard(number) {
 }
 
 app.get('/health', async (req, res) => {
+  let dbStatus = 'down';
   try {
     await db.query('SELECT 1');
-    res.json({ app: 'ok', database: 'ok' });
+    dbStatus = 'ok';
   } catch {
-    res.status(200).json({ app: 'ok', database: 'up' });
+    dbStatus = 'down';
   }
+  res.status(200).json({ app: 'ok', database: dbStatus });
 });
 
 app.get('/api/payments', async (req, res) => {
@@ -47,7 +49,7 @@ app.get('/api/payments', async (req, res) => {
 
 app.post('/api/payments', async (req, res) => {
   const { name, plan, cardNumber, expiry, cvc } = req.body;
-  const number = String(cardNumber).replace(/\s/g, '');
+i  const number = String(cardNumber).replace(/\s/g, '');
   const [month, year] = String(expiry).split('/').map(Number);
 
   if (!name) return res.status(400).json({ error: 'Name is required' });
