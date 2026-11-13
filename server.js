@@ -49,7 +49,7 @@ app.get('/api/payments', async (req, res) => {
 
 app.post('/api/payments', async (req, res) => {
   const { name, plan, cardNumber, expiry, cvc } = req.body;
-i  const number = String(cardNumber).replace(/\s/g, '');
+  const number = String(cardNumber).replace(/\s/g, '');
   const [month, year] = String(expiry).split('/').map(Number);
 
   if (!name) return res.status(400).json({ error: 'Name is required' });
