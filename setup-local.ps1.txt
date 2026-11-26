@@ -1,0 +1,35 @@
+# PowerShell 5.1+ on Windows. Generates secrets on YOUR machine, never prints them.
+# Run in the extracted project folder: powershell -ExecutionPolicy Bypass -File .\setup-local.ps1
+$ErrorActionPreference = 'Stop'
+Set-Location $PSScriptRoot
+function New-LocalSecret {
+  $bytes = New-Object byte[] 32
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+  return ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+}
+$path = Join-Path $PSScriptRoot '.env'
+if (Test-Path $path) {
+  $text = [IO.File]::ReadAllText($path)
+  if ($text -notmatch 'GENERATE_LOCALLY') {
+    Write-Host 'Existing .env preserved. No secrets were changed.'
+    exit 0
+  }
+} else {
+  $text = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '.env.example'))
+}
+$dbSecret = New-LocalSecret
+$text = $text.Replace('postgresql://payops:GENERATE_LOCALLY@localhost:5432/payops', ('postgresql://payops:' + $dbSecret + '@localhost:5432/payops'))
+$text = $text.Replace('POSTGRES_PASSWORD=GENERATE_LOCALLY', ('POSTGRES_PASSWORD=' + $dbSecret))
+foreach ($name in @('SESSION_SECRET', 'MAINTENANCE_TOKEN', 'GRAFANA_ADMIN_PASSWORD')) {
+  $text = $text.Replace(($name + '=GENERATE_LOCALLY'), ($name + '=' + (New-LocalSecret)))
+}
+$admin = @(@{ name = 'local-admin'; role = 'admin'; token = (New-LocalSecret) })
+$adminJson = ConvertTo-Json -InputObject $admin -Compress
+$text = $text.Replace('ADMIN_TOKENS=[]', ("ADMIN_TOKENS='" + $adminJson + "'"))
+if ($text -match 'GENERATE_LOCALLY') { throw 'Unresolved placeholders. No file was written.' }
+[IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host 'Local .env is ready. Secrets were generated here and not printed.'
+Write-Host 'For staff login, open .env privately and use the local-admin token. Do not share it.'
+Write-Host 'Stripe stays in demo mode. Do not use this setup on a public server.'
+Write-Host 'Next: docker compose up --build -d'

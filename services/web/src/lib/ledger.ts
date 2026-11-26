@@ -1,0 +1,1 @@
+import {commerce} from './backend';export async function ledgerBalances():Promise<{account:string;currency:string;debit:number;credit:number;balance:number}[]>{return (await commerce('/api/views/ledger')).balances;}

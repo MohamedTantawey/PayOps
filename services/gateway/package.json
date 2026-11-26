@@ -1,0 +1,14 @@
+{
+  "name": "payops-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PayOps payment orchestration gateway implementing payops-contract.pdf",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/gateway.test.js"
+  },
+  "dependencies": { "pg": "^8.13.0" },
+  "devDependencies": { "@electric-sql/pglite": "^0.2.17" }
+}

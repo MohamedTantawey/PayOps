@@ -1,0 +1,8 @@
+{
+  "name": "payops-microservices",
+  "version": "2.1.0",
+  "private": true,
+  "scripts": {
+    "test:smoke": "node tests/smoke.mjs"
+  }
+}

@@ -1,0 +1,5 @@
+import {commerce} from '@/lib/backend';
+import {adminRead} from '@/lib/admin';
+import {CouponForm} from '@/components/CouponForm';
+export const dynamic='force-dynamic';
+export default async function CouponsPage(){await adminRead('coupons',['finance']);const coupons=await commerce('/api/views/coupons') as any[];return <div><h1 className="text-2xl font-bold">Coupons</h1><p className="mt-2 text-sm text-zinc-500">Finance/admin only. No automatic discounts are enabled. Uses are consumed when checkout reserves stock, including abandoned checkouts, to avoid oversubscription.</p><div className="mt-6 grid gap-4">{coupons.map((c:any)=><article key={c.code} className="rounded border border-zinc-800 p-4 text-sm"><strong>{c.code} · {c.percent}%</strong><p className="mt-2 text-xs text-zinc-400">{c.used}/{c.maxUses} uses · Minimum EGP {(c.minCents/100).toFixed(2)} · {c.active?'Active':'Disabled'} · Expires {c.expiresAt.toISOString()}</p>{c.active&&<CouponForm code={c.code}/>}</article>)}</div><h2 className="mt-8 text-lg font-bold">Create coupon</h2><CouponForm/></div>;}

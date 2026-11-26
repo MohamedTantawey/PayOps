@@ -1,0 +1,41 @@
+generator client {
+ provider = "prisma-client-js"
+ binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+model Customer {
+  id String @id @default(cuid())
+  email String @unique
+  name String
+  passwordHash String
+  createdAt DateTime @default(now())
+  sessions CustomerSession[]
+  cart CartItem[]
+}
+model CustomerSession {
+  id String @id
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+model CartItem {
+  id String @id @default(cuid())
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId String
+  quantity Int
+  @@unique([customerId, productId])
+}
+model AuthAttempt {
+  id String @id
+  count Int @default(0)
+  resetAt DateTime
+}
+model Inbox {
+ id String @id
+ createdAt DateTime @default(now())
+}

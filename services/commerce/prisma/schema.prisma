@@ -1,0 +1,182 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String
+  priceCents  Int
+  currency    String      @default("egp")
+  emoji       String      @default("🛍️")
+  gradient    String      @default("from-violet-600 to-fuchsia-500")
+  stock       Int         @default(0)
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  customerId          String?
+  subtotalCents       Int?
+  discountCents       Int @default(0)
+  couponCode          String?
+  shippingAddress     Json?
+  fulfillment         String @default("UNFULFILLED")
+  trackingNumber      String?
+  trackingUrl         String?
+  fulfillmentNote     String?
+  stripeSessionId     String?     @unique
+  stripePaymentIntent String?
+  customerEmail       String?
+  status              OrderStatus @default(PENDING)
+  totalCents          Int
+  currency            String      @default("egp")
+  demo                Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  items               OrderItem[]
+  payments            Payment[]
+  refunds             Refund[]
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  name      String
+  quantity  Int
+  unitCents Int
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stripeChargeId String?  @unique
+  amountCents    Int
+  feeCents       Int      @default(0)
+  netCents       Int      @default(0)
+  currency       String   @default("egp")
+  status         String   @default("succeeded")
+  createdAt      DateTime @default(now())
+}
+
+model Refund {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stripeRefundId String?  @unique
+  amountCents    Int
+  reason         String?
+  status         String   @default("succeeded")
+  createdAt      DateTime @default(now())
+}
+
+// Keys are never automatically deleted: financial retries must remain stable.
+model IdempotencyRecord {
+  id String @id
+  fingerprint String
+  context Json
+  response Json?
+  statusCode Int @default(200)
+  createdAt DateTime @default(now())
+}
+
+model Reservation {
+  id String @id @default(cuid())
+  orderId String
+  productId String
+  quantity Int
+  state String @default("HELD")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([state, expiresAt])
+  @@index([orderId])
+}
+
+model LedgerEntry {
+  id String @id @default(cuid())
+  movementId String
+  account String
+  debitCents Int @default(0)
+  creditCents Int @default(0)
+  currency String
+  orderId String
+  createdAt DateTime @default(now())
+  @@unique([movementId, account])
+  @@index([currency, account])
+}
+
+model WebhookEvent {
+  id String @id
+  type String
+  payload Json
+  state String @default("RECEIVED")
+  attempts Int @default(0)
+  lastError String?
+  nextAttemptAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([state, nextAttemptAt])
+}
+
+model WebhookDelivery {
+  id String @id @default(cuid())
+  eventId String?
+  bodyHash String
+  valid Boolean
+  receivedAt DateTime @default(now())
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+  actor String
+  role String
+  action String
+  target String
+  why String
+  createdAt DateTime @default(now())
+}
+
+
+
+
+model Coupon {
+  code String @id
+  percent Int
+  minCents Int @default(0)
+  maxDiscountCents Int?
+  maxUses Int
+  used Int @default(0)
+  active Boolean @default(true)
+  expiresAt DateTime
+}
+
+
+model Outbox {
+  id String @id
+  kind String
+  payload Json
+  createdAt DateTime @default(now())
+  deliveredAt DateTime?
+  attempts Int @default(0)
+  lastError String?
+}

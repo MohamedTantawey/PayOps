@@ -1,0 +1,166 @@
+name: payops-v2
+services:
+  commerce-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: ${COMMERCE_DB_PASSWORD:?Run setup-local.ps1 first}
+      POSTGRES_DB: commerce
+    volumes: ["commerce_data_v2:/var/lib/postgresql/data"]
+    networks: [commerce-data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commerce -d commerce"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  identity-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: identity
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?Run setup-local.ps1 first}
+      POSTGRES_DB: identity
+    volumes: ["identity_data_v2:/var/lib/postgresql/data"]
+    networks: [identity-data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identity -d identity"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  identity:
+    build: ./services/identity
+    environment:
+      DATABASE_URL: postgresql://identity:${IDENTITY_DB_PASSWORD}@identity-db:5432/identity
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:?Run setup-local.ps1 first}
+    networks: [backend, identity-data]
+    depends_on:
+      identity-db: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  gateway-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: ${GATEWAY_DB_PASSWORD:?Run setup-local.ps1 first}
+      POSTGRES_DB: gateway
+    volumes: ["gateway_data_v2:/var/lib/postgresql/data"]
+    networks: [gateway-data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway -d gateway"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  gateway:
+    build: ./services/gateway
+    environment:
+      DATABASE_URL: postgresql://gateway:${GATEWAY_DB_PASSWORD}@gateway-db:5432/gateway
+      GATEWAY_TEST_KEY: ${GATEWAY_TEST_KEY:?Run setup-local.ps1 first}
+      GATEWAY_WEBHOOK_TARGET: http://web:3000/api/webhooks/payops
+      GATEWAY_WEBHOOK_SECRET: ${GATEWAY_WEBHOOK_SECRET:?Run setup-local.ps1 first}
+    # Browser-facing: the hosted card page. Commerce reaches it as http://gateway:3000 on the backend network.
+    ports: ["127.0.0.1:3010:3000"]
+    networks: [backend, gateway-data]
+    depends_on:
+      gateway-db: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  commerce:
+    build: ./services/commerce
+    environment:
+      DATABASE_URL: postgresql://commerce:${COMMERCE_DB_PASSWORD}@commerce-db:5432/commerce
+      COMMERCE_SERVICE_TOKEN: ${COMMERCE_SERVICE_TOKEN:?Run setup-local.ps1 first}
+      IDENTITY_URL: http://identity:3200
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      ADMIN_TOKENS: ${ADMIN_TOKENS:-[]}
+      SESSION_SECRET: ${SESSION_SECRET:?Run setup-local.ps1 first}
+      MAINTENANCE_TOKEN: ${MAINTENANCE_TOKEN:?Run setup-local.ps1 first}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      GATEWAY_URL: http://gateway:3000
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:3010}
+      GATEWAY_API_KEY: ${GATEWAY_TEST_KEY:?Run setup-local.ps1 first}
+      GATEWAY_WEBHOOK_SECRET: ${GATEWAY_WEBHOOK_SECRET:?Run setup-local.ps1 first}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_REPLACE_ME}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_REPLACE_ME}
+      OTEL_SERVICE_NAME: payops-commerce
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+    networks: [backend, commerce-data]
+    depends_on:
+      commerce-db: {condition: service_healthy}
+      gateway: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  web:
+    build: ./services/web
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      COMMERCE_URL: http://commerce:3000
+      COMMERCE_SERVICE_TOKEN: ${COMMERCE_SERVICE_TOKEN}
+      IDENTITY_URL: http://identity:3200
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      ADMIN_TOKENS: ${ADMIN_TOKENS:-[]}
+      SESSION_SECRET: ${SESSION_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OTEL_SERVICE_NAME: payops-web
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+    networks: [backend]
+    depends_on:
+      commerce: {condition: service_healthy}
+      identity: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  worker:
+    build: ./services/commerce
+    command: ["node", "scripts/worker.mjs"]
+    environment:
+      WORKER_APP_URL: http://commerce:3000
+      MAINTENANCE_TOKEN: ${MAINTENANCE_TOKEN}
+      COMMERCE_SERVICE_TOKEN: ${COMMERCE_SERVICE_TOKEN}
+    networks: [backend]
+    depends_on:
+      commerce: {condition: service_healthy}
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro", "promdata_v2:/prometheus"]
+    ports: ["127.0.0.1:9090:9090"]
+    networks: [backend]
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Run setup-local.ps1 first}
+    volumes: ["./observability/grafana/provisioning:/etc/grafana/provisioning:ro", "./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro", "grafanadata_v2:/var/lib/grafana"]
+    ports: ["127.0.0.1:3001:3000"]
+    networks: [backend]
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes: ["./observability/tempo.yml:/etc/tempo.yml:ro", "tempodata_v2:/var/tempo"]
+    networks: [backend]
+networks:
+  backend:
+  commerce-data:
+    internal: true
+  identity-data:
+    internal: true
+  gateway-data:
+    internal: true
+volumes:
+  gateway_data_v2:
+  commerce_data_v2:
+  identity_data_v2:
+  promdata_v2:
+  grafanadata_v2:
+  tempodata_v2:

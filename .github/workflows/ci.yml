@@ -1,0 +1,19 @@
+name: PayOps v2 CI
+on: [push, pull_request]
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20}
+      - name: Gateway tests
+        run: cd services/gateway && npm ci && npm test
+      - run: node setup-local.mjs
+      - run: docker compose config --quiet
+      - run: docker compose up --build --wait --wait-timeout 240
+      - name: Browser-facing smoke check
+        run: |
+          docker compose exec -T commerce sh -c 'TEST_APP_URL=http://web:3000 TEST_COMMERCE_URL=http://localhost:3000 node /app/scripts/compose-smoke.mjs'
+      - if: always()
+        run: docker compose logs --no-color && docker compose down

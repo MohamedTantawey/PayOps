@@ -1,0 +1,1 @@
+{"name":"payops-identity","version":"2.0.0","private":true,"type":"module","scripts":{"build":"prisma generate && node --check server.mjs","start":"node server.mjs","db:setup":"prisma db push"},"dependencies":{"@prisma/client":"^5.22.0"},"devDependencies":{"prisma":"^5.22.0"}}
