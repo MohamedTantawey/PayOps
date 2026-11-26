@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {db} from '@/lib/db';import {failure} from '@/lib/http';
+export async function GET(req:Request){try{const slug=new URL(req.url).searchParams.get('slug');return NextResponse.json(slug?await db.product.findFirst({where:{slug,active:true}}):await db.product.findMany({where:{active:true},orderBy:{createdAt:'asc'}}));}catch(e){return failure(e);}}

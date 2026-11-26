@@ -1,0 +1,3 @@
+import {NextResponse} from 'next/server';import {identity} from '@/lib/identity';import {sameOrigin} from '@/lib/auth';import {failure} from '@/lib/http';
+export async function GET(){try{return NextResponse.json(await identity('/v1/session'),{headers:{'Cache-Control':'no-store'}});}catch(e){return failure(e);}}
+export async function POST(req:Request){try{sameOrigin(req);const b=await req.json();const result=await identity('/v1/auth','POST',b);const response=NextResponse.json(result.logout?{ok:true}:{customer:result.customer});response.cookies.set('payops_customer',result.sessionToken||'',{httpOnly:true,secure:process.env.COOKIE_SECURE==='true',sameSite:'lax',path:'/',maxAge:result.logout?0:604800});return response;}catch(e){return failure(e);}}

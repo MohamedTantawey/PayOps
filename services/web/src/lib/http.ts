@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';import {ApiError} from './transaction';export function failure(e:unknown){return NextResponse.json({error:e instanceof ApiError?e.message:'Service unavailable. Try again shortly.'},{status:e instanceof ApiError?e.status:503});}

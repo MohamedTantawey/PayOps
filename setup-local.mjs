@@ -1,0 +1,3 @@
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';import {randomBytes} from 'node:crypto';
+const path=new URL('.env',import.meta.url);if(existsSync(path))throw new Error('Existing .env preserved. Use a fresh v2 folder.');
+let text=readFileSync(new URL('.env.example',import.meta.url),'utf8');text=text.replace(/GENERATE_LOCALLY/g,()=>randomBytes(32).toString('hex'));text=text.replace('ADMIN_TOKENS=[]',`ADMIN_TOKENS='${JSON.stringify([{name:'local-admin',role:'admin',token:randomBytes(32).toString('hex')}])}'`);writeFileSync(path,text,{mode:0o600});console.log('Local .env generated. No secrets printed.');
