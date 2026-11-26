@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>PayOps Control Center</title>
+    <style>
+      :root {
+        --payops-page: #f1f1f2;
+        --payops-surface: #fff;
+        --payops-surface-soft: #f7f7f7;
+        --payops-border: #ececec;
+        --payops-text: #313133;
+        --payops-muted: #777;
+        --payops-accent: #ef861d;
+        --payops-accent-hover: #d66e0c;
+        --payops-accent-ink: #c56a12;
+        --payops-dark: #243334;
+        --bg: var(--payops-page);
+        --surface: var(--payops-surface);
+        --border: var(--payops-border);
+        --primary: var(--payops-accent);
+        --text: var(--payops-text);
+        --text-muted: var(--payops-muted);
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color-scheme: light;
+        background-color: var(--payops-page);
+        color: var(--payops-text);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/index.jsx"></script>
+  </body>
+</html>

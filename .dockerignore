@@ -1,0 +1,10 @@
+.git
+.env
+node_modules
+**/node_modules
+dist
+**/dist
+storage
+**/storage
+npm-debug.log*
+yarn-error.log*

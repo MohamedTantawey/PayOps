@@ -1,0 +1,34 @@
+{
+  "name": "payops-monorepo",
+  "version": "1.0.0",
+  "description": "PayOps - High-Performance Multi-PSP Payment & Billing Orchestration Platform",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "worker",
+    "mock-psp",
+    "frontend"
+  ],
+  "scripts": {
+    "migrate": "node backend/src/shared/migrate.js",
+    "seed": "node backend/src/shared/seed.js",
+    "test:unit": "node --test backend/test/unit worker/test/unit",
+    "test:integration": "node --test backend/test/integration",
+    "start:backend": "yarn workspace @payops/backend start",
+    "dev:backend": "yarn workspace @payops/backend dev",
+    "start:worker": "yarn workspace @payops/worker start",
+    "dev:worker": "yarn workspace @payops/worker dev",
+    "start:mock-psp": "yarn workspace @payops/mock-psp start",
+    "start:frontend": "yarn workspace @payops/frontend dev"
+  },
+  "keywords": [
+    "payments",
+    "orchestration",
+    "hyperswitch",
+    "vault",
+    "routing",
+    "payops"
+  ],
+  "author": "PayOps Team",
+  "license": "Apache-2.0"
+}
