@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: payops-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: abdalrhman1/payops-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: payops
+            - name: DB_USER
+              value: payops_admin
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: control-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_URL
+              value: redis://redis:6379
+            - name: MOCK_STRIPE_URL
+              value: http://mock-psp:4001
+            - name: MOCK_PAYMO_URL
+              value: http://mock-psp:4002
+            - name: LOCAL_STORAGE_PATH
+              value: /app/storage/invoices
+            - name: AUTO_MIGRATE
+              value: "false"
+            - name: CHECKOUT_ALLOWED_ORIGINS
+              value: http://localhost:3000
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: invoice-storage

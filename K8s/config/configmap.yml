@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-config
+  namespace: payops-control
+data:
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: payops
+  DB_USER: payops_admin
+  REDIS_URL: redis://redis:6379
+  MOCK_STRIPE_URL: http://mock-psp:4001
+  MOCK_PAYMO_URL: http://mock-psp:4002
+  LOCAL_STORAGE_PATH: /app/storage/invoices
+  AUTO_MIGRATE: "false"
+  CHECKOUT_ALLOWED_ORIGINS: http://localhost:3000

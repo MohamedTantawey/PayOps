@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-psp
+  namespace: payops-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-psp
+  template:
+    metadata:
+      labels:
+        app: mock-psp
+    spec:
+      containers:
+        - name: mock-psp
+          image: abdalrhman1/payops-mock-psp:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MOCK_PSP_PORT
+              value: "4001"
+            - name: MOCK_PAYMO_PORT
+              value: "4002"
+          ports:
+            - containerPort: 4001
+            - containerPort: 4002

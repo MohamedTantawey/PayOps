@@ -1,0 +1,22 @@
+{
+  "name": "@payops/worker",
+  "version": "1.0.0",
+  "description": "PayOps Async Background Worker (Invoices, Webhooks, Billing, Analytics)",
+  "main": "src/worker.js",
+  "scripts": {
+    "start": "node src/worker.js",
+    "dev": "nodemon src/worker.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "pdfkit": "^0.15.0",
+    "pg": "^8.11.5",
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "license": "Apache-2.0"
+}

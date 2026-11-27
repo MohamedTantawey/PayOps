@@ -1,0 +1,152 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: payops
+      POSTGRES_USER: payops_admin
+      POSTGRES_PASSWORD: change_me_in_secrets_manager
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payops_admin -d payops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mock-psp:
+    image: abdalrhman1/payops-mock-psp:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: mock-psp/Dockerfile
+    environment:
+      MOCK_PSP_PORT: 4001
+      MOCK_PAYMO_PORT: 4002
+    ports:
+      - "4001:4001"
+      - "4002:4002"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payops
+      DB_USER: payops_admin
+      DB_PASSWORD: change_me_in_secrets_manager
+      REDIS_URL: redis://redis:6379
+    command: ["node", "backend/src/shared/migrate.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  seed:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payops
+      DB_USER: payops_admin
+      DB_PASSWORD: change_me_in_secrets_manager
+      REDIS_URL: redis://redis:6379
+    command: ["node", "backend/src/shared/seed.js"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  backend:
+    image: abdalrhman1/payops-backend:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payops
+      DB_USER: payops_admin
+      DB_PASSWORD: change_me_in_secrets_manager
+      REDIS_URL: redis://redis:6379
+      MOCK_STRIPE_URL: http://mock-psp:4001
+      MOCK_PAYMO_URL: http://mock-psp:4002
+      LOCAL_STORAGE_PATH: /app/storage/invoices
+      AUTO_MIGRATE: "false"
+      CHECKOUT_ALLOWED_ORIGINS: ${CHECKOUT_ALLOWED_ORIGINS:-http://localhost:3000}
+    ports:
+      - "${PAYOPS_BACKEND_HOST_PORT:-3002}:3000"
+    volumes:
+      - invoice_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+      mock-psp:
+        condition: service_started
+
+  worker:
+    image: abdalrhman1/payops-worker:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payops
+      DB_USER: payops_admin
+      DB_PASSWORD: change_me_in_secrets_manager
+      REDIS_URL: redis://redis:6379
+      MOCK_STRIPE_URL: http://mock-psp:4001
+      MOCK_PAYMO_URL: http://mock-psp:4002
+      LOCAL_STORAGE_PATH: /app/storage/invoices
+    ports:
+      - "${WORKER_HOST_PORT:-3001}:3001"
+    volumes:
+      - invoice_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+      mock-psp:
+        condition: service_started
+
+  frontend:
+    image: abdalrhman1/payops-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_MOCK_PSP_WEBHOOK_URL: http://mock-psp:4001/webhook
+    ports:
+      - "8081:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  invoice_storage:
