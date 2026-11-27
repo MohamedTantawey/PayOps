@@ -116,9 +116,9 @@ pipeline {
             }
         }
 
-        stage('Push images to Docker Hub') {
+       stage('Push images to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
                     sh '''
                         set -eu
                         set +x
@@ -142,6 +142,7 @@ pipeline {
                 }
             }
         }
+    }
 
     post {
         failure {
@@ -152,5 +153,4 @@ pipeline {
             sh 'docker image prune -f --filter "until=24h" || true'
         }
     }
-}
 }
