@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
-const apiBaseUrl = process.env.PAYOPS_API_URL || 'http://127.0.0.1:3000';
+const apiBaseUrl = process.env.PAYOPS_API_URL || 'http://127.0.0.1:3002';
 const apiKey = process.env.PAYOPS_TEST_API_KEY || 'sk_test_demo_000000000000000000000000';
 
 async function post(path, body, headers = {}) {
