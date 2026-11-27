@@ -117,31 +117,31 @@ pipeline {
         }
 
         stage('Push images to Docker Hub') {
-    steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
-            sh '''
-                set -eu
-                set +x
-                echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
+                    sh '''
+                        set -eu
+                        set +x
+                        echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
 
-                for svc in backend frontend worker mock-psp; do
-                    echo "Pushing abdalrhman1/payops-${svc}:${BUILD_NUMBER}..."
-                    for attempt in 1 2 3; do
-                        if docker push --quiet "abdalrhman1/payops-${svc}:${BUILD_NUMBER}"; then
-                            break
-                        fi
-                        if [ "$attempt" -eq 3 ]; then
-                            echo "Failed to push payops-${svc} after 3 attempts"
-                            exit 1
-                        fi
-                        echo "Retrying push for payops-${svc} in 5s (attempt ${attempt}/3)..."
-                        sleep 5
-                    done
-                done
-            '''
+                        for svc in backend frontend worker mock-psp; do
+                            echo "Pushing abdalrhman1/payops-${svc}:${BUILD_NUMBER}..."
+                            for attempt in 1 2 3; do
+                                if docker push --quiet "abdalrhman1/payops-${svc}:${BUILD_NUMBER}"; then
+                                    break
+                                fi
+                                if [ "$attempt" -eq 3 ]; then
+                                    echo "Failed to push payops-${svc} after 3 attempts"
+                                    exit 1
+                                fi
+                                echo "Retrying push for payops-${svc} in 5s (attempt ${attempt}/3)..."
+                                sleep 5
+                            done
+                        done
+                    '''
+                }
+            }
         }
-    }
-}
 
     post {
         failure {
