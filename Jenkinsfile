@@ -120,7 +120,7 @@ pipeline {
             when { branch 'main' }
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-token',
+                    credentialsId: 'dockerhub',
                     usernameVariable: 'DH_USER',
                     passwordVariable: 'DH_TOKEN'
                 )]) {
