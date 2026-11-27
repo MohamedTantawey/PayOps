@@ -147,7 +147,7 @@ docker compose ps
 | **Migrations** | — | Runs DB migrations (one-off) |
 | **Seed** | — | Seeds initial data (one-off, after migrations) |
 | **Backend API** | `3002` | Main REST API (`http://localhost:3002`) |
-| **Async Worker** | `3001` | Background job processor |
+| **Async Worker** | `3004` | Background job processor |
 | **Frontend** | `8080` | React Control Center (`http://localhost:8080`) |
 
 ### Access Points
@@ -158,7 +158,7 @@ docker compose ps
 - **API Swagger Docs**: http://localhost:3002/api-docs
 - **Mock Stripe**: http://localhost:4001
 - **Mock Paymob**: http://localhost:4002
-- **Worker Health**: http://localhost:3001/status
+- **Worker Health**: http://localhost:3004/status
 
 ### Common Docker Commands
 
@@ -243,7 +243,7 @@ yarn dev:backend
 **Terminal 3 — Async Worker:**
 ```bash
 yarn dev:worker
-# Runs on http://localhost:3001, processes BullMQ queues
+# Runs on http://localhost:3004, processes BullMQ queues
 ```
 
 **Terminal 4 — Frontend Control Center:**
