@@ -116,6 +116,8 @@ services:
     build:
       context: .
       dockerfile: worker/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432

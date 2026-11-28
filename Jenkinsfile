@@ -21,6 +21,13 @@ pipeline {
         PAYOPS_BACKEND_HOST_PORT = '3002'
         WORKER_HOST_PORT = '3004'
         BACKEND_URL = 'http://127.0.0.1:3002'
+        PAYOPS_API_URL = 'http://127.0.0.1:3002'
+        DOCKERHUB_NAMESPACE = 'abdalrhman1'
+        // AWS CD variables (uncomment and configure when enabling the AWS CD stage)
+        // AWS_REGION = 'eu-north-1'
+        // AWS_ACCOUNT_ID = '123456789012'
+        // ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        // ECS_CLUSTER = 'payops-prod-cluster'
     }
 
     stages {
@@ -103,11 +110,23 @@ pipeline {
 
                     curl --fail --retry 30 --retry-connrefused \
                         --retry-delay 2 --max-time 5 \
-                        http://127.0.0.1:3002/status
+                        "http://127.0.0.1:${PAYOPS_BACKEND_HOST_PORT}/health"
 
                     curl --fail --retry 30 --retry-connrefused \
                         --retry-delay 2 --max-time 5 \
-                        http://127.0.0.1:3004/health
+                        "http://127.0.0.1:${PAYOPS_BACKEND_HOST_PORT}/status"
+
+                    curl --fail --retry 30 --retry-connrefused \
+                        --retry-delay 2 --max-time 5 \
+                        "http://127.0.0.1:${WORKER_HOST_PORT}/health"
+
+                    curl --fail --retry 30 --retry-connrefused \
+                        --retry-delay 2 --max-time 5 \
+                        http://127.0.0.1:4001/health
+
+                    curl --fail --retry 30 --retry-connrefused \
+                        --retry-delay 2 --max-time 5 \
+                        http://127.0.0.1:4002/health
 
                     curl --fail --retry 30 --retry-connrefused \
                         --retry-delay 2 --max-time 5 \
@@ -116,7 +135,7 @@ pipeline {
             }
         }
 
-       stage('Push images to Docker Hub') {
+        stage('Push images to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
                     sh '''
@@ -125,9 +144,13 @@ pipeline {
                         echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
 
                         for svc in backend frontend worker mock-psp; do
-                            echo "Pushing abdalrhman1/payops-${svc}:${BUILD_NUMBER}..."
+                            IMAGE="${DOCKERHUB_NAMESPACE}/payops-${svc}:${IMAGE_TAG}"
+                            LATEST="${DOCKERHUB_NAMESPACE}/payops-${svc}:latest"
+                            docker tag "$IMAGE" "$LATEST"
+
+                            echo "Pushing ${IMAGE} and ${LATEST}..."
                             for attempt in 1 2 3; do
-                                if docker push --quiet "abdalrhman1/payops-${svc}:${BUILD_NUMBER}"; then
+                                if docker push --quiet "$IMAGE" && docker push --quiet "$LATEST"; then
                                     break
                                 fi
                                 if [ "$attempt" -eq 3 ]; then
@@ -142,6 +165,103 @@ pipeline {
                 }
             }
         }
+
+        // =====================================================================
+        // AWS CONTINUOUS DELIVERY (CD) — APPROPRIATE PLACEMENT
+        // Runs only after all CI checks (unit, SonarQube, build, integration,
+        // smoke tests) and artifact publishing have succeeded.
+        // =====================================================================
+        //
+        // --- Example 1: Push images to Amazon ECR ---
+        // stage('Push images to AWS ECR') {
+        //     when {
+        //         expression { env.BRANCH_NAME == null || env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main' }
+        //     }
+        //     steps {
+        //         withAWS(credentials: 'aws-cd-credentials', region: "${AWS_REGION}") {
+        //             sh '''
+        //                 set -eu
+        //                 aws ecr get-login-password --region "${AWS_REGION}" | \
+        //                     docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+        //
+        //                 for svc in backend frontend worker mock-psp; do
+        //                     SRC="${DOCKERHUB_NAMESPACE}/payops-${svc}:${IMAGE_TAG}"
+        //                     DST="${ECR_REGISTRY}/payops-${svc}:${IMAGE_TAG}"
+        //                     DST_LATEST="${ECR_REGISTRY}/payops-${svc}:latest"
+        //                     docker tag "$SRC" "$DST"
+        //                     docker tag "$SRC" "$DST_LATEST"
+        //                     docker push --quiet "$DST"
+        //                     docker push --quiet "$DST_LATEST"
+        //                 done
+        //             '''
+        //         }
+        //     }
+        // }
+        //
+        // --- Example 2A: Deploy to AWS ECS (Fargate) ---
+        // stage('Deploy to AWS ECS (CD)') {
+        //     when {
+        //         expression { env.BRANCH_NAME == null || env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main' }
+        //     }
+        //     steps {
+        //         withAWS(credentials: 'aws-cd-credentials', region: "${AWS_REGION}") {
+        //             sh '''
+        //                 set -eu
+        //                 # 1. Run DB migrations as a one-off ECS task before rolling services
+        //                 aws ecs run-task \
+        //                     --cluster "${ECS_CLUSTER}" \
+        //                     --task-definition payops-migrate \
+        //                     --launch-type FARGATE \
+        //                     --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxx],securityGroups=[sg-xxxx],assignPublicIp=DISABLED}"
+        //
+        //                 # 2. Update ECS services with the new image tag (or register new task def revisions)
+        //                 for svc in payops-backend payops-worker payops-frontend payops-mock-psp; do
+        //                     aws ecs update-service \
+        //                         --cluster "${ECS_CLUSTER}" \
+        //                         --service "$svc" \
+        //                         --force-new-deployment
+        //                 done
+        //
+        //                 # 3. Wait for services to stabilize and verify ALB health endpoint
+        //                 aws ecs wait services-stable \
+        //                     --cluster "${ECS_CLUSTER}" \
+        //                     --services payops-backend payops-worker payops-frontend
+        //                 curl --fail --retry 10 --retry-delay 5 "https://api.payops.example.com/status"
+        //             '''
+        //         }
+        //     }
+        // }
+        //
+        // --- Example 2B: Deploy to AWS EC2 via SSM (Docker Compose) ---
+        // stage('Deploy to AWS EC2 via SSM (CD)') {
+        //     steps {
+        //         withAWS(credentials: 'aws-cd-credentials', region: "${AWS_REGION}") {
+        //             sh '''
+        //                 set -eu
+        //                 aws ssm send-command \
+        //                     --document-name "AWS-RunShellScript" \
+        //                     --targets "Key=tag:App,Values=payops-prod" \
+        //                     --parameters commands="cd /opt/payops && IMAGE_TAG=${IMAGE_TAG} docker compose pull && IMAGE_TAG=${IMAGE_TAG} docker compose up -d --remove-orphans"
+        //             '''
+        //         }
+        //     }
+        // }
+        //
+        // --- Example 2C: Deploy to AWS EKS (Kubernetes / Helm) ---
+        // stage('Deploy to AWS EKS (CD)') {
+        //     steps {
+        //         withAWS(credentials: 'aws-cd-credentials', region: "${AWS_REGION}") {
+        //             sh '''
+        //                 set -eu
+        //                 aws eks update-kubeconfig --region "${AWS_REGION}" --name payops-eks-cluster
+        //                 for svc in backend frontend worker mock-psp; do
+        //                     kubectl -n payops set image "deployment/payops-${svc}" "${svc}=${ECR_REGISTRY}/payops-${svc}:${IMAGE_TAG}"
+        //                 done
+        //                 kubectl -n payops rollout status deployment/payops-backend --timeout=180s
+        //             '''
+        //         }
+        //     }
+        // }
     }
 
     post {
@@ -149,8 +269,14 @@ pipeline {
             sh 'docker compose logs --no-color --tail=200 || true'
         }
         always {
-            sh 'docker compose down --volumes --remove-orphans || true'
-            sh 'docker image prune -f --filter "until=24h" || true'
+            sh '''
+                docker compose down --volumes --remove-orphans || true
+                for svc in backend frontend worker mock-psp; do
+                    docker rmi "${DOCKERHUB_NAMESPACE}/payops-${svc}:${IMAGE_TAG}" "${DOCKERHUB_NAMESPACE}/payops-${svc}:latest" 2>/dev/null || true
+                done
+                docker logout || true
+                docker image prune -f --filter "until=24h" || true
+            '''
         }
     }
 }
