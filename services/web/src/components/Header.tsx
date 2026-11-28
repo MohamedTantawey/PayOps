@@ -39,7 +39,7 @@ export function Header() {
   function toggle(next: Exclude<Panel, ''>) { setPanel(current => current === next ? '' : next); }
   return <>
     <div className="po-announcement"><span>PayOps / DROP 01</span><strong>Your everyday. Upgraded.</strong><Link href="/products">Explore the collection <span aria-hidden="true">→</span></Link></div>
-    <div className="po-utility"><div><span>From Cairo, with character.</span><span>All prices in EGP <b>•</b> English</span></div></div>
+    <div className="po-utility"><div><span>From Cairo, with character.</span><span><button type="button" onClick={() => cart.setCurrency(cart.currency === 'EGP' ? 'USD' : 'EGP')} aria-label="Switch currency" style={{ fontWeight: 700, color: '#303034' }}>{cart.currency === 'USD' ? 'USD $' : 'EGP ج.م'}</button> <b>•</b> English</span></div></div>
     <header className="po-header" ref={headerRef} onBlur={event => {
       if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPanel('');
     }}>

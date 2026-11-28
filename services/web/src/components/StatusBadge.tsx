@@ -1,5 +1,6 @@
 const styles: Record<string, string> = {
   PENDING: "bg-zinc-700/40 text-zinc-300",
+  AUTHORIZED: "bg-sky-500/15 text-sky-300",
   PAID: "bg-emerald-500/15 text-emerald-300",
   FAILED: "bg-rose-500/15 text-rose-300",
   CANCELED: "bg-zinc-700/40 text-zinc-400",

@@ -1,0 +1,20 @@
+# Compose override to connect the ecommerce storefront to the standalone PayOps (Q1) stack.
+# Usage:
+#   1. Start PayOps:    cd ../payops && CHECKOUT_ALLOWED_ORIGINS=http://localhost:3000 docker compose up -d --build
+#   2. Start Ecommerce: cd ../ecommerce && docker compose -f docker-compose.yml -f docker-compose.payops.yml up -d --build
+services:
+  commerce:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      GATEWAY_URL: ${GATEWAY_URL:-http://host.docker.internal:3002}
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:8080}
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:-sk_test_demo_000000000000000000000000}
+
+  web:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PAYOPS_URL: ${PAYOPS_URL:-http://host.docker.internal:3002}
+      PAYOPS_API_KEY: ${PAYOPS_API_KEY:-sk_test_demo_000000000000000000000000}
+      PAYOPS_PUBLIC_URL: ${PAYOPS_PUBLIC_URL:-http://localhost:8080}

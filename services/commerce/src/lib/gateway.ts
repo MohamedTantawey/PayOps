@@ -32,18 +32,86 @@ async function gw<T>(method: string, path: string, body?: unknown, idemKey?: str
 }
 
 // Replaces stripe.checkout.sessions.create. Returns the hosted card page URL (served by the gateway).
-export async function createGatewayPayment(p: { orderId: string; amountCents: number; currency: string; description: string; customerEmail?: string; returnUrl: string; cancelUrl: string; idemKey: string }) {
+export async function createGatewayPayment(p: {
+  orderId: string;
+  amountCents: number;
+  currency: string;
+  description: string;
+  customerEmail?: string;
+  returnUrl: string;
+  cancelUrl: string;
+  idemKey: string;
+  captureMethod?: "automatic" | "manual";
+  vaultToken?: string;
+  autoInvoice?: boolean;
+  confirm?: boolean;
+  paymentMethod?: string;
+  simulateFailover?: boolean;
+}) {
+  if (!Number.isInteger(p.amountCents) || p.amountCents <= 0) {
+    throw new Error("amount_cents must be a strict positive integer");
+  }
+  const currency = p.currency.toUpperCase();
+  if (currency !== "USD" && currency !== "EGP") {
+    throw new Error(`Unsupported PayOps currency: ${p.currency}`);
+  }
   const r = await gw<any>("POST", "/api/payments", {
-    amount_cents: p.amountCents, currency: p.currency, confirm: false, description: p.description,
+    amount_cents: p.amountCents,
+    currency,
+    capture_method: p.captureMethod ?? "automatic",
+    confirm: p.confirm ?? false,
+    auto_invoice: p.autoInvoice ?? true,
+    description: p.description,
     ...(p.customerEmail ? { customer_email: p.customerEmail } : {}),
-    metadata: { order_id: p.orderId }, return_url: p.returnUrl, cancel_url: p.cancelUrl,
+    ...(p.vaultToken ? { vault_token: p.vaultToken } : {}),
+    metadata: {
+      order_id: p.orderId,
+      ...(p.paymentMethod ? { payment_method: p.paymentMethod } : {}),
+      ...(p.simulateFailover !== undefined ? { simulate_failover: p.simulateFailover } : {}),
+    },
+    return_url: p.returnUrl,
+    cancel_url: p.cancelUrl,
   }, p.idemKey);
   const publicBase = process.env.GATEWAY_PUBLIC_URL || base;
-  if (!r.intent?.id || !r.intent?.pay_path) throw new Error("Gateway did not return a hosted checkout path");
-  const url = publicBase.startsWith("http://") || publicBase.startsWith("https://")
-    ? new URL(r.intent.pay_path, publicBase).toString()
-    : publicBase + r.intent.pay_path;
-  return { intentId: r.intent.id as string, url };
+  if (!r.intent?.id) throw new Error("Gateway did not return a payment intent id");
+  const payPath = r.intent.pay_path as string | undefined;
+  const url = payPath
+    ? (publicBase.startsWith("http://") || publicBase.startsWith("https://")
+        ? new URL(payPath, publicBase).toString()
+        : publicBase + payPath)
+    : `${p.returnUrl}`;
+  return {
+    intentId: r.intent.id as string,
+    url,
+    status: r.intent.status as string | undefined,
+    routedConnector: (r.active_attempt?.connector ?? r.intent?.routed_connector ?? null) as string | null,
+    routingSummary: (r.routing?.summary ?? null) as string | null,
+  };
+}
+
+export type TokenizePayload =
+  | { card: { number: string; exp_month: number; exp_year: number; cvv: string } }
+  | { payment_method: "instapay" | "vodafone_cash" | "paypal"; account_identifier: string };
+
+export async function tokenize(payload: TokenizePayload) {
+  const r = await gw<any>("POST", "/api/payments/tokenize", payload);
+  return {
+    vault_token: (r.vault_token ?? r.token) as string,
+    last4: (r.last4 ?? null) as string | null,
+    network: (r.network ?? null) as string | null,
+    raw: r,
+  };
+}
+
+export async function capturePayment(intentId: string, amountCents?: number, idemKey?: string) {
+  const body = amountCents !== undefined ? { amount_cents: amountCents } : {};
+  const r = await gw<any>("POST", `/api/payments/${intentId}/capture`, body, idemKey);
+  return {
+    intentId: r.intent?.id as string,
+    status: r.intent?.status as string,
+    capturedAmountCents: Number(r.intent?.captured_amount_cents ?? amountCents ?? 0),
+    routedConnector: (r.active_attempt?.connector ?? null) as string | null,
+  };
 }
 
 // Replaces stripe.refunds.create.

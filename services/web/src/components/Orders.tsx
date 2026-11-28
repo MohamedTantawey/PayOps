@@ -24,7 +24,25 @@ function SignInPrompt({ what }: { what: string }) {
 }
 
 function OrderHeader({ o }: { o: any }) {
-  return <header><div><strong>Order {o.id}</strong><small>{new Date(o.createdAt).toLocaleString('en-GB')}</small></div><b>{o.status.replaceAll('_', ' ')}</b></header>;
+  const statusStyle =
+    o.status === 'AUTHORIZED'
+      ? { background: '#e3f1fb', color: '#0c5a8a' }
+      : o.status === 'PENDING'
+        ? { background: '#fff0dc', color: '#b35200' }
+        : undefined;
+  return <header>
+    <div>
+      <strong>Order {o.id}</strong>
+      <small>{new Date(o.createdAt).toLocaleString('en-GB')}</small>
+      {(o.routedConnector || o.routingSummary) && (
+        <small style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
+          {o.routedConnector && <span style={{ background: '#f1f1f2', padding: '2px 7px', borderRadius: '3px', color: '#303034' }}>Routed via: {o.routedConnector}</span>}
+          {o.routingSummary && /failover/i.test(o.routingSummary) && <span style={{ background: '#fff0dc', padding: '2px 7px', borderRadius: '3px', color: '#b35200', fontWeight: 700 }}>Failover Recovered</span>}
+        </small>
+      )}
+    </div>
+    <b style={statusStyle}>{o.status.replaceAll('_', ' ')}</b>
+  </header>;
 }
 
 function OrderItems({ o }: { o: any }) {
@@ -38,12 +56,46 @@ function Tracking({ o }: { o: any }) {
 
 export function OrdersPage() {
   const { customer, orders, error, reload } = useCustomerOrders();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState('');
+
+  async function handleOrderAction(orderId: string, action: 'capture' | 'sync') {
+    setBusyId(orderId);
+    setActionMsg('');
+    try {
+      const r = await fetch(`/api/orders/${encodeURIComponent(orderId)}/${action}`, { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw Error(d.error || `Failed to ${action} order`);
+      setActionMsg(action === 'capture' ? `Order ${orderId} captured and marked PAID.` : `Order ${orderId} synced (${d.order?.status || 'updated'}).`);
+      await reload();
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return <div className="payops-store po-account-wrap"><div className="po-page">
     <div className="po-breadcrumb"><Link href="/">Home</Link> <span>/</span> <Link href="/account">Account</Link> <span>/</span> Your orders</div>
+    {actionMsg && <p className="po-form-message" role="status" style={{ marginBottom: '14px' }}>{actionMsg}</p>}
     {orders === null && !error ? <p>Loading your orders…</p> : !customer ? <SignInPrompt what="Your order history"/> :
       <section className="po-orders"><div className="po-section-bar"><h2><Icon name="box"/>Your orders</h2><button onClick={reload}>Refresh ↻</button></div>
         {!orders!.length ? <div className="po-empty"><h3>Your story starts here.</h3><p>You haven't placed an account order yet.</p><Link className="po-orange-button" href="/products">Explore the collection</Link></div> :
-          orders!.map(o => <article key={o.id} className="po-order"><OrderHeader o={o}/><OrderItems o={o}/><p><Link href={`/track?order=${o.id}`}>Track delivery →</Link></p></article>)}
+          orders!.map(o => <article key={o.id} className="po-order"><OrderHeader o={o}/><OrderItems o={o}/>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+              <Link href={`/track?order=${o.id}`}>Track delivery →</Link>
+              {o.status === 'AUTHORIZED' && (
+                <button type="button" className="po-orange-button" disabled={busyId === o.id} onClick={() => handleOrderAction(o.id, 'capture')} style={{ minHeight: '34px', padding: '7px 14px', fontSize: '12px' }}>
+                  {busyId === o.id ? 'Capturing…' : 'Confirm Shipment & Capture'}
+                </button>
+              )}
+              {o.status === 'PENDING' && (
+                <button type="button" disabled={busyId === o.id} onClick={() => handleOrderAction(o.id, 'sync')} style={{ border: '1px solid #ed8a2b', color: '#b85e09', borderRadius: '3px', padding: '7px 14px', fontSize: '12px', background: '#fff' }}>
+                  {busyId === o.id ? 'Syncing…' : 'Sync Payment Status'}
+                </button>
+              )}
+            </div>
+          </article>)}
       </section>}
     {error && <p className="po-form-message" role="alert">{error}</p>}
   </div></div>;

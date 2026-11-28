@@ -4,7 +4,7 @@ async function proxy(req:Request){
  try{
  const url=new URL(req.url);const path=url.pathname;
  // Never turn the BFF into an arbitrary network proxy.
- const allowed=/^\/api\/(checkout|marketplace\/(checkout|coupon)|refunds|webhooks\/(stripe|payops)|customer\/orders|admin\/(coupons|fulfillment|events\/retry|session|logout))$/;
+ const allowed=/^\/api\/(checkout|marketplace\/(checkout|coupon)|refunds|payment-methods|orders\/(idempotency-demo|[a-zA-Z0-9_-]+\/(capture|sync))|webhooks\/(stripe|payops)|customer\/orders|admin\/(coupons|fulfillment|events\/retry|session|logout))$/;
  if(!allowed.test(path))return NextResponse.json({error:'Not found'},{status:404});
  const h=new Headers();for(const name of ['content-type','cookie','authorization','origin','idempotency-key','stripe-signature','x-payops-signature','x-payops-timestamp','x-payops-event','x-payops-delivery-id']){const v=req.headers.get(name);if(v)h.set(name,v);}
  h.set('x-service-token',process.env.COMMERCE_SERVICE_TOKEN||'');

@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     }
 
     const payopsOrderId = mapEcommerceOrderIdToPayOps(orderId);
-    const payopsRes = await fetch(`${payopsUrl}/api/v1/orders/${encodeURIComponent(payopsOrderId)}/invoice`, {
+    const payopsRes = await fetch(`${payopsUrl}/api/invoices/orders/${encodeURIComponent(payopsOrderId)}/invoice`, {
       headers: {
         authorization: `Bearer ${payopsApiKey}`,
       },

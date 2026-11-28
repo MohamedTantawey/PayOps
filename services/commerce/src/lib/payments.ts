@@ -13,19 +13,55 @@ export function requestKey(req: Request) {
   return key;
 }
 function fingerprint(value: unknown) { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
-export async function settlePayment(tx: Tx, orderId: string, email?: string | null, intent?: string | null) {
+export async function authorizePayment(
+  tx: Tx,
+  orderId: string,
+  intent?: string | null,
+  meta?: { routedConnector?: string | null; routingSummary?: string | null }
+) {
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
   if (order.status !== "PENDING") return;
+  await tx.order.update({
+    where: { id: orderId },
+    data: {
+      status: "AUTHORIZED",
+      ...(intent ? { stripePaymentIntent: intent } : {}),
+      ...(meta?.routedConnector ? { routedConnector: meta.routedConnector } : {}),
+      ...(meta?.routingSummary ? { routingSummary: meta.routingSummary } : {}),
+    },
+  });
+}
+
+export async function settlePayment(
+  tx: Tx,
+  orderId: string,
+  email?: string | null,
+  intent?: string | null,
+  meta?: { capturedAmountCents?: number; routedConnector?: string | null; routingSummary?: string | null }
+) {
+  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+  if (order.status !== "PENDING" && order.status !== "AUTHORIZED") return;
   const reservations = await tx.reservation.findMany({ where: { orderId } });
   if (!reservations.length || reservations.some(r => r.state !== "HELD")) throw new Error("Payment requires inventory review: reservation no longer held");
   await tx.reservation.updateMany({ where: { orderId, state: "HELD" }, data: { state: "COMMITTED" } });
-  await tx.order.update({ where: { id: orderId }, data: { status: "PAID", ...(email ? { customerEmail: email } : {}), stripePaymentIntent: intent } });
+  const captured = meta?.capturedAmountCents ?? order.totalCents;
+  await tx.order.update({
+    where: { id: orderId },
+    data: {
+      status: "PAID",
+      capturedAmountCents: captured,
+      ...(email ? { customerEmail: email } : {}),
+      ...(intent ? { stripePaymentIntent: intent } : {}),
+      ...(meta?.routedConnector ? { routedConnector: meta.routedConnector } : {}),
+      ...(meta?.routingSummary ? { routingSummary: meta.routingSummary } : {}),
+    },
+  });
   if (order.customerId) {
     const purchased = await tx.orderItem.findMany({where:{orderId}});
     await tx.outbox.upsert({where:{id:`cart:${orderId}`},update:{},create:{id:`cart:${orderId}`,kind:'cart.purchased',payload:{customerId:order.customerId,items:purchased.map(i=>({productId:i.productId,quantity:i.quantity}))}}});
   }
-  await tx.payment.create({ data: { orderId, amountCents: order.totalCents, netCents: order.totalCents, currency: order.currency } });
-  await postMovement(tx, `payment:${orderId}`, orderId, order.currency, order.totalCents, "stripe_clearing", "sales");
+  await tx.payment.create({ data: { orderId, amountCents: captured, netCents: captured, currency: order.currency } });
+  await postMovement(tx, `payment:${orderId}`, orderId, order.currency, captured, "stripe_clearing", "sales");
 }
 export async function checkout(key: string, productId: string, quantity: number, customerId?: string) {
   const id = `checkout:${key}`;

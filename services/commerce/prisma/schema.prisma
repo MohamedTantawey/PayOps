@@ -24,6 +24,7 @@ model Product {
 
 enum OrderStatus {
   PENDING
+  AUTHORIZED
   PAID
   FAILED
   CANCELED
@@ -48,12 +49,30 @@ model Order {
   status              OrderStatus @default(PENDING)
   totalCents          Int
   currency            String      @default("egp")
+  paymentMethod       String      @default("stripe_card")
+  captureMethod       String      @default("automatic")
+  routedConnector     String?
+  routingSummary      String?
+  capturedAmountCents Int?
   demo                Boolean     @default(false)
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   items               OrderItem[]
   payments            Payment[]
   refunds             Refund[]
+}
+
+model SavedPaymentMethod {
+  id            String   @id @default(cuid())
+  userId        String
+  vaultToken    String   @unique
+  paymentMethod String
+  label         String
+  last4         String?
+  currency      String   @default("EGP")
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
 }
 
 model OrderItem {

@@ -3,7 +3,7 @@ import { db } from "./db";
 import { stripe } from "./stripe";
 import { gatewayConfigured, isGatewayRef, getGatewayPayment, cancelGatewayPayment } from "./gateway";
 import { financial, Tx } from "./transaction";
-import { recordRefund, settlePayment } from "./payments";
+import { recordRefund, settlePayment, authorizePayment } from "./payments";
 import { observed } from "./observability";
 export async function releaseReservation(tx: Tx, orderId: string) {
   const reservations = await tx.reservation.findMany({ where: { orderId, state: "HELD" } });
@@ -131,7 +131,13 @@ export async function maintenance() {
           if (g.intent.amount_cents === order.totalCents && String(g.intent.currency).toLowerCase() === order.currency) await financial(tx => settlePayment(tx, order.id, undefined, order.stripeSessionId));
           continue;
         }
-        if (status === "processing" || status === "requires_capture") continue;
+        if (status === "requires_capture") {
+          if (g.intent.amount_cents === order.totalCents && String(g.intent.currency).toLowerCase() === order.currency) {
+            await financial(tx => authorizePayment(tx, order.id, order.stripeSessionId));
+          }
+          continue;
+        }
+        if (status === "processing") continue;
         // Cancel first: if the customer pays at this exact moment the cancel is refused and we keep the stock.
         if (status !== "canceled") { try { await cancelGatewayPayment(order.stripeSessionId); } catch { continue; } }
       } else {
